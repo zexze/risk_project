@@ -78,12 +78,133 @@ SELECT
     ELSE id - 1 END) AS id, 
     student
 FROM Seat 
-ORDER BY id 
+ORDER BY id;
+
+-- LEETCODE 1341
+-- UNION ALL to merge results together 
+(SELECT name AS results -- This determine the title for the output 
+FROM Users AS U
+LEFT JOIN (
+    SELECT user_id, COUNT(movie_id) AS num_movie
+    FROM MovieRating
+    GROUP BY user_id
+) AS M ON U.user_id = M.user_id
+ORDER BY num_movie DESC, name
+LIMIT 1)
+UNION ALL
+(SELECT M.title
+FROM Movies AS M
+LEFT JOIN (
+    SELECT movie_id, AVG(rating) AS rating_avg
+    FROM MovieRating
+    WHERE YEAR(created_at) = 2020 AND MONTH(created_at) = 2
+    GROUP BY movie_id
+) AS R ON M.movie_id = R.movie_id
+ORDER BY R.rating_avg DESC, M.title
+LIMIT 1)
+
+
+-- LEETCODE 1321
+-- 1. We first filter the original table to get the rows we want to do calculation on
+-- 2. Then we use the aggregate function, and then we attach the calculated value back to the original table
+-- 2.1 Because we first filter, then aggregate, this will only return the last row of data
+-- 2.2 Therefore, when we attached back, we don't need to worry about the in between rows 
+
+-- INNER SELECT FROM THE TABLE ITSELF
+-- FILTER THE ROWS USING WHERE & BETWEEN CLAUSE ON DATE
+-- DATE_SUB([DATE], INTERVAL X DAY); DATE_ADD([DATE], INTERVAL X DAY)
+SELECT 
+    visited_on,
+    (
+        SELECT SUM(amount)
+        FROM Customer
+        -- MAKE SURE WE AGGREGATE THE AMOUNT USING DATES FROM THE OUTER TABLE 
+        -- WITHOUT C1. WE ARE JUST CALCULATING THE TOTAL SUM AMOUNT
+        WHERE visited_on BETWEEN DATE_SUB(C1.visited_on, INTERVAL 6 DAY) AND C1.visited_on
+    ) AS amount,
+    ROUND(
+        (
+            SELECT SUM(amount) / 7
+            FROM Customer
+            -- USE AS A FILTER TO EXTRACT THE 7 ROWS 
+            WHERE visited_on BETWEEN DATE_SUB(C1.visited_on, INTERVAL 6 DAY) AND C1.visited_on
+        ),
+        2
+    ) AS average_amount
+FROM Customer AS C1
+WHERE visited_on >= (
+    -- WE NEED TO REMOVE THE FIRST 6 DAYS
+    SELECT DATE_ADD(MIN(visited_on), INTERVAL 6 DAY)
+    FROM Customer
+)
+GROUP BY visited_on
+
+-- VERSES ROLLING_AVG
+-- THIS WILL GIVE RESULT FOR EACH ROW 
+SELECT visited_on,
+AVG(amount) OVER (
+    ORDER BY visited_on
+    RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW
+) AS ROLLING_AVG
+FROM Customer
+
+
+-- LEETCODE 602
+-- Use UNION ALL to stack two tables with the same columns on top of each other 
+-- Then we can use some aggregate functions to find the results 
+
+WITH TOTAL AS
+
+(SELECT 
+    requester_id AS id,
+    COUNT(*) AS num_friend
+FROM RequestAccepted
+GROUP BY id
+
+UNION ALL
+
+SELECT 
+    accepter_id AS id,
+    COUNT(*) AS num_friend
+FROM RequestAccepted
+GROUP BY id)
+
+SELECT id, SUM(num_friend) AS num
+FROM TOTAL
+GROUP BY id
+ORDER BY num DESC
+LIMIT 1
+
+-- INTERSECT, UNION, UNION ALL
+-- INTERSECT: return the shared rows
+-- UNION: return the union without duplicates identifier 
+-- UNION ALL: return all records from both table 
 
 
 
+-- LEETCODE 585
+-- Use WHERE( [col] IN ()) to filter the table 
+-- Use GROUP BY & HAVING to filter the table 
+SELECT ROUND(SUM(tiv_2016),2) AS tiv_2016
+FROM Insurance AS I
+WHERE
+(I.pid IN (SELECT pid FROM Insurance GROUP BY lat, lon HAVING  COUNT(*) = 1)) 
+AND
+(I.tiv_2015 IN (SELECT tiv_2015 FROM Insurance GROUP BY tiv_2015 HAVING(COUNT(*)>1)))
 
 
 
-
+-- LEETCODE 185
+-- RANK() OVER (PARTITION BY [COL] ORDER BY [COL2])
+-- DENSE_RANK() OVER (PARTITION BY [COL] ORDER BY [COL2])
+-- RANK() will give tied ranks the same number: 1,2,2,4
+-- DENSE_RANK() will give consecuitive rank: 1,2,3,4
+SELECT D.name AS Department, T1.name AS Employee, T1.salary AS Salary
+FROM (
+    SELECT departmentId, name, salary,
+    DENSE_RANK() OVER (PARTITION BY departmentId ORDER BY salary DESC) AS RANK_
+    FROM Employee
+) AS T1
+RIGHT JOIN Department AS D ON T1.departmentId = D.id
+WHERE T1.RANK_ < 4
 
