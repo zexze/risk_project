@@ -1,4 +1,90 @@
 
+-- Useful Functions Summary 
+SELECT id,
+		-- CASE WHEN to create new column 
+		CASE WHEN (income = (SELECT MAX(income) FROM Table1) THEN 'Yes' 
+			 ELSE 'No' END AS max_check,
+		CASE WHEN income < 1000 THEN 'Low' 
+			 WHEN income > 1000 AND income < 5000 THEN 'Middle'
+			 ELSE WHEN income > 5000 THEN 'High' END AS income_bin,
+		SUM(CASE WHEN rating < 3 THEN 1 ELSE 0 END) AS bad_rate_count,
+
+	
+		-- IF statement to create new column 
+		IF(x>y, 'Yes', 'No') AS tri_2,
+		ROUND(AVG(IF(action = 'confirmed', 1,0),2) AS confirmation_rate,
+
+
+		-- COALESCE to handel missing data 
+		COALESCE(price, 0) AS price,
+
+		-- String Indexing
+		SUBSTRING(customer_name,1,4) AS first_name,
+
+		-- OFFSET to get second highest
+		SELECT (SELECT salary FROM Table2 ORDER BY salary DESC OFFSET 1 LIMIT 1) AS salary_2nd, 
+
+		-- WINDOW() OVER (PARTITION BY [Group Col] ORDER BY [Order col] DESC) -- Note: no need to group by at the end of the main query
+		FIRST_VALUE(new_price) OVER (PARTITION BY product_id ORDER BY change_date DESC) AS price, -- Get the updated price for the product
+		SUM(weight_i) OVER (ORDER BY turn) AS weight_sum -- rolling sum of weight by turn 
+		AVG(amount) OVER (ORDER BY visited_date RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS rolling_7_avg -- rolling avg of 7 days
+		DENSE_RANK() OVER (PARTITION BY department_id ORDER BY salary DESC) AS rank_no_tie, -- rank with no tie 1 2 3 4
+		RANK() OVER (PARTITION BY department_id ORDER BY salary DESC) AS rank_tie, -- rank with tie: 1 2 2 3
+
+		-- AGG() wiht GROUP BY
+		COUNT(DISTINCT product) AS num_sold,
+		GROUP_CONCAT(DISTINCT product ORDER BY product SEPARATOR ',') AS products -- concate all the product names togerther: apple, banana, ...
+		-- GROUP BY sell_date need to be include at the end of the main query 
+
+FROM Table1
+-- Filtering with condition
+WHERE Year(created_date) = 2020 AND MONTH(created_date) = 2 --Filter to 2020.02
+WHERE visited_date BETWEEN DATE_SUB(visited_date, INTERVAL 6 DAY) AND visited_date --Filter to today and 6 days before
+WHERE visited_date >= (SELECT DATE_ADD(MIN(visited_date), INTERVAL 6 DAY) FROM Table2) --Remove the first 6 days of records from the data 
+WHERE id IN (SELECT id FROM Table2 GROUP BY lat, lon HAVING COUNT(*) = 1) -- Select id that has unique location 
+WHERE LENGTH(content_review) > 15
+WHERE conditions like 'DIAB1%' -- Starts with DIAB1
+WHERE mail REGEXP '^[][]*@leetcode\\.com$' -- Use regular expression to map patterns 
+-- ORDER the df 
+ORDER BY id, salary DESC 
+
+
+-- UNION, UNION ALL, INTERSECT 
+-- UNION ALL to create a reference table 
+(SELECT 'A' AS category
+UNION ALL
+SELECT 'B')
+
+-- Concate two dfs on top of each other; make sure to have same columns 
+(SELECT id, num FROM Table1)
+UNION -- Drop duplicate
+(SELECT id, num FROM Table2)
+UNION ALL -- Keep duplicate 
+(SELECT id, num FROM Table2)
+INTERSECT  -- Only keep same records 
+(SELECT id, num FROM Table2)
+
+
+-- LEFT JOIN AND FILTER NULL
+SELECT customer_id, COUNT(V.visit_id) AS count_no_trans -- For customer who don't make transaction, count how many time they make visit 
+FROM Visits AS V
+LEFT JOIN Transactions AS T ON V.visit_id = T.visit_id
+WHERE T.transaction_id IS NULL -- No transaction under this visit id 
+GROUP BY customer_id
+
+-- JOIN SAME TABLE TWICE
+SELECT *
+FROM TABLE1 AS T1
+JOIN TABLE2 AS T2 ON (DATE(T1.record_date) = DATE(T2.record_date) + INTERVAL 1 DAY)
+WHERE T1.sales > T2.sales -- Today's sales is larger than yesterday's sales 
+
+
+
+
+
+
+
+
 -- IF & CASE WHEN
 SELECT *
     (CASE WHEN x+y > z THEN 'Yes' ELSE 'No' END) traingle
